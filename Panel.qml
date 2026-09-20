@@ -33,6 +33,7 @@ Panel {
   // new device routes through our helper, which registers a PIN-aware agent.
   property bool pairDialogOpen: false
   property bool pairDialogBusy: false
+  property bool pairPinEnabled: true
   property string pairTargetAddress: ""
   property string pairTargetLabel: ""
   property string pairDialogMessage: ""
@@ -301,37 +302,41 @@ Panel {
   function connectDevice(device) {
     if (!device || device.connected) return
     if (device.paired || device.bonded || device.trusted) runDeviceAction(device, "connect", "connecting")
-    else openPairDialog(device)
+    else startPair(device)
   }
 
-  function openPairDialog(device) {
+  // Pair without a PIN first. Most devices pair fine (Just Works), so the PIN
+  // dialog is only surfaced if this attempt fails — see onExited below.
+  function startPair(device) {
     if (!device || !device.address) return
     pairTargetAddress = device.address
     pairTargetLabel = deviceLabel(device) || device.address
     pairDialogMessage = ""
-    pairDialogBusy = false
-    pairDialogOpen = true
-  }
-
-  function closePairDialog() {
-    if (pairDialogBusy) return
     pairDialogOpen = false
-    pairTargetAddress = ""
-    pairDialogMessage = ""
+    runPair(device.address, "")
   }
 
-  // Pair through the helper. An empty PIN means "just pair normally" — the
-  // helper then behaves exactly like omarchy-bluetooth-device pair. A non-empty
-  // PIN starts a private PIN-aware agent so devices that request one can pair.
-  function submitPair(pin) {
-    if (!pairTargetAddress || pairDialogBusy) return
-    setPendingAction(pairTargetAddress, "connecting")
+  // Retry from the dialog with the user-supplied PIN/passkey.
+  function retryPairWithPin(pin) {
+    if (!pairTargetAddress) return
+    runPair(pairTargetAddress, pin)
+  }
+
+  function runPair(address, pin) {
+    if (!address || pairDialogBusy) return
+    setPendingAction(address, "connecting")
     pairDialogBusy = true
     pairDialogMessage = ""
-    var cmd = [pairHelperPath, pairTargetAddress]
+    var cmd = [pairHelperPath, address]
     if (pin && pin.length > 0) cmd.push(pin)
     pairProcess.command = cmd
     pairProcess.running = true
+  }
+
+  function closePairDialog() {
+    pairDialogOpen = false
+    pairTargetAddress = ""
+    pairDialogMessage = ""
   }
 
   function disconnectDevice(device) {
@@ -650,14 +655,18 @@ Panel {
       var dev = root.deviceByAddress(root.pairTargetAddress)
       if (exitCode === 0 && dev && (dev.paired || dev.bonded || dev.connected)) {
         if (dev.connected) root.scheduleAudioOutputSwitch(dev)
-        root.pairDialogOpen = false
-        root.pairTargetAddress = ""
-        root.pairDialogMessage = ""
-      } else {
-        root.pairDialogMessage = exitCode === 4
-          ? "Paired over BLE only — no audio profile. Reset the speaker to clear its pairings, then pair again."
-          : "Pairing failed — check the PIN and try again."
+        root.closePairDialog()
+        return
       }
+      // Pairing did not complete. Offer a PIN retry, or explain the BLE-only case.
+      root.pairDialogOpen = true
+      root.pairPinEnabled = exitCode !== 4
+      if (exitCode === 4)
+        root.pairDialogMessage = "Paired over BLE only — no audio profile. Reset the speaker to clear its pairings, then pair again."
+      else if (exitCode === 3)
+        root.pairDialogMessage = "PIN pairing needs bt-agent (bluez-tools), which is not installed."
+      else
+        root.pairDialogMessage = "Pairing failed. If this device needs a PIN or passkey, enter it and try again."
     }
   }
 
@@ -963,13 +972,14 @@ Panel {
         anchors.fill: parent
         opened: root.pairDialogOpen
         busy: root.pairDialogBusy
+        pinEnabled: root.pairPinEnabled
         deviceLabel: root.pairTargetLabel
         message: root.pairDialogMessage
         foreground: root.bar.foreground
         accent: Color.accent
         fontFamily: root.bar.fontFamily
         onCanceled: root.closePairDialog()
-        onSubmitted: function(pin) { root.submitPair(pin) }
+        onSubmitted: function(pin) { root.retryPairWithPin(pin) }
       }
     }
   }

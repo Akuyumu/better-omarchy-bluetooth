@@ -50,10 +50,10 @@ Everything the stock panel does, plus PIN pairing:
 - List connected, paired, and discovered devices while scanning.
 - Click / `Enter` to connect or disconnect; `x` to forget a device.
 - Route audio to a connected speaker automatically.
-- **Pair a new device with an optional PIN/passkey.** Activating an unpaired
-  (discovered) device opens a *Pair device* dialog:
-  - leave the field blank → pairs exactly like stock omarchy;
-  - enter the PIN/passkey → pairs through a PIN-aware agent.
+- **Pair a new device with a PIN/passkey when it needs one.** Activating an
+  unpaired (discovered) device pairs immediately, exactly like stock omarchy.
+  Only if that fails does a dialog appear to enter a PIN/passkey and retry — so
+  devices that pair without a code are never interrupted.
 
 Keyboard: `j`/`k` move, `Enter`/`Space` activate, `Esc` closes,
 `Tab` switches panels. While the PIN dialog is open the keyboard belongs to it

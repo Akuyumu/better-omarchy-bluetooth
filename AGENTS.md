@@ -54,11 +54,13 @@ omarchy-shell better-omarchy-bluetooth close
 
 ## How it works (and the gotchas)
 
-- Pairing an **unpaired** (discovered) device opens `PairPinDialog` instead of
-  pairing immediately. Blank PIN → the helper behaves exactly like
-  `omarchy-bluetooth-device pair`. Non-blank PIN → the helper starts a private
-  `bt-agent -c KeyboardDisplay -p <pinfile>` (which requests the default-agent
-  slot) so it can answer `RequestPasskey` / `RequestPinCode`.
+- Pairing an **unpaired** (discovered) device runs the helper with no PIN first
+  (Just Works, like stock omarchy). Only if that fails does the panel open
+  `PairPinDialog` to enter a PIN/passkey and retry. A non-empty PIN makes the
+  helper start a private `bt-agent -c KeyboardDisplay -p <pinfile>` (which
+  requests the default-agent slot) so it can answer `RequestPasskey` /
+  `RequestPinCode`. Exit **4** (audio device bonded BLE-only) shows an
+  explanation with no PIN field.
 - Quickshell 0.3.1's `Quickshell.Bluetooth` exposes **no agent API**, and
   omarchy's `bt-agent` service is stock `-c NoInputNoOutput`. That is why PIN
   handling lives in the external helper, not in QML. Do not rely on overriding

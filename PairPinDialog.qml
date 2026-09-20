@@ -13,6 +13,7 @@ Item {
 
   property bool opened: false
   property bool busy: false
+  property bool pinEnabled: true
   property string deviceLabel: ""
   property string message: ""
   property color foreground: Color.foreground
@@ -74,7 +75,8 @@ Item {
 
       Text {
         textFormat: Text.PlainText
-        text: "If this device asks for a PIN or passkey, enter it below. Leave blank otherwise."
+        visible: root.pinEnabled
+        text: "Enter the device's PIN or passkey, then try again."
         color: Qt.darker(root.foreground, 1.4)
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
@@ -85,6 +87,7 @@ Item {
       TextField {
         id: pinField
         width: parent.width
+        visible: root.pinEnabled
         enabled: !root.busy
         placeholderText: "PIN / passkey (optional)"
         foreground: root.foreground
@@ -115,10 +118,10 @@ Item {
         }
 
         DialogButton {
-          text: root.busy ? "Pairing…" : "Pair"
+          text: root.pinEnabled ? (root.busy ? "Pairing…" : "Pair") : "Close"
           enabled: !root.busy
           destructive: false
-          onClicked: root.submitted(pinField.text)
+          onClicked: root.pinEnabled ? root.submitted(pinField.text) : root.canceled()
         }
       }
     }
@@ -127,7 +130,7 @@ Item {
   onOpenedChanged: {
     if (opened) {
       pinField.text = ""
-      pinField.forceActiveFocus()
+      if (pinEnabled) pinField.forceActiveFocus()
     }
   }
 
