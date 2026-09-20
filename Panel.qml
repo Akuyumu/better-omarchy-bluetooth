@@ -713,7 +713,7 @@ Panel {
   }
 
   IpcHandler {
-    target: "omarchy.bluetooth"
+    target: "better-omarchy-bluetooth"
 
     function open() { root.open() }
     function close() { root.close() }
