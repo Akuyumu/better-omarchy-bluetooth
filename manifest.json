@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "better-omarchy-bluetooth",
+  "name": "Better Omarchy Bluetooth",
+  "version": "1.0.0",
+  "author": "kuyu",
+  "license": "MIT",
+  "description": "Bluetooth device panel with connect/disconnect plus PIN/passkey entry for devices that require one during pairing.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Better Omarchy Bluetooth",
+    "description": "Bluetooth device list with connect/disconnect and PIN/passkey pairing.",
+    "category": "Network",
+    "aliases": [
+      "bluetooth",
+      "bt",
+      "pin"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {}
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.bluetooth"
+  }
+}

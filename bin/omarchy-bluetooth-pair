@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# omarchy-bluetooth-pair — pair a Bluetooth device, optionally answering the
+# PIN/passkey prompt some devices (speakers, car kits, older headsets) raise
+# during classic pairing.
+#
+# The stock omarchy pairing helper runs `bluetoothctl pair` with no
+# PIN-capable agent, and the stock omarchy bt-agent service is
+# `NoInputNoOutput`, so a device that asks for a PIN fails with
+# org.bluez.Error.AuthenticationRejected and the GUI never gets a chance to
+# ask. This helper fixes that by running a private PIN-aware agent when a PIN
+# is supplied.
+#
+# Usage:
+#   omarchy-bluetooth-pair <address> [pin]
+#
+#   <address>  BlueZ address, e.g. B1:21:81:A7:B8:EA
+#   [pin]      Optional PIN/passkey. When omitted, behaviour matches
+#              `omarchy-bluetooth-device pair` (auto-accept agent).
+#
+# Exit codes:
+#   0  device reports Paired (a connect was also attempted)
+#   1  pairing failed
+#   2  bad arguments
+#   3  bt-agent (bluez-tools) missing, needed only for PIN pairing
+
+set -u
+
+addr="${1:-}"
+pin="${2:-}"
+
+if [[ ! $addr =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
+  echo "usage: omarchy-bluetooth-pair <address> [pin]" >&2
+  exit 2
+fi
+
+# Bluetooth is held off by an rfkill soft block when "off"; clear it through
+# the omarchy helper so pairing does not fail on a powered-down radio.
+if [[ $(timeout 2s bluetoothctl show 2>/dev/null) != *"Powered: yes"* ]]; then
+  omarchy-bluetooth-power on >/dev/null 2>&1 || true
+fi
+
+bluetoothctl trust "$addr" >/dev/null 2>&1 || true
+
+agent_pid=""
+pinfile=""
+cleanup() {
+  if [[ -n $agent_pid ]]; then
+    kill -9 "$agent_pid" >/dev/null 2>&1
+  fi
+  if [[ -n $pinfile ]]; then
+    rm -f "$pinfile"
+  fi
+  # Our private agent took the default-agent slot. Bounce the stock omarchy
+  # agent so it requests the slot back, keeping later pairings working.
+  if systemctl --user is-active --quiet bt-agent 2>/dev/null; then
+    systemctl --user kill -s SIGKILL bt-agent >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
+if [[ -z $pin ]]; then
+  timeout 30s bluetoothctl pair "$addr" >/dev/null 2>&1 || true
+else
+  if ! command -v bt-agent >/dev/null 2>&1; then
+    echo "bt-agent (bluez-tools) is required to pair with a PIN" >&2
+    exit 3
+  fi
+
+  pinfile=$(mktemp) || exit 1
+  chmod 600 "$pinfile"
+  printf '%s %s\n' "$addr" "$pin" > "$pinfile"
+
+  # A private agent that knows the PIN. bt-agent requests the default-agent
+  # slot on start, so it answers the device's RequestPasskey / RequestPinCode
+  # while the pair below runs. KeyboardDisplay covers both "enter a PIN" and
+  # "confirm a passkey" flows.
+  bt-agent -c KeyboardDisplay -p "$pinfile" >/dev/null 2>&1 &
+  agent_pid=$!
+  sleep 1
+
+  timeout 30s bluetoothctl pair "$addr" >/dev/null 2>&1 || true
+fi
+
+# Bring the audio profile up so speakers route sound right away.
+timeout 20s bluetoothctl connect "$addr" >/dev/null 2>&1 || true
+
+if timeout 5s bluetoothctl info "$addr" 2>/dev/null | grep -q 'Paired: yes'; then
+  exit 0
+fi
+exit 1
