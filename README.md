@@ -22,7 +22,7 @@ Requires `omarchy` 4.x and the `bluez-tools` package (already pulled in by
 omarchy, since it ships the `bt-agent` service).
 
 ```bash
-omarchy plugin add https://github.com/<you>/better-omarchy-bluetooth.git --enable
+omarchy plugin add https://github.com/Akuyumu/better-omarchy-bluetooth.git --enable
 ```
 
 Then replace the built-in widget:
