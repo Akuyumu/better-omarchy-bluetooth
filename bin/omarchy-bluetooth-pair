@@ -85,7 +85,18 @@ fi
 # Bring the audio profile up so speakers route sound right away.
 timeout 20s bluetoothctl connect "$addr" >/dev/null 2>&1 || true
 
-if timeout 5s bluetoothctl info "$addr" 2>/dev/null | grep -q 'Paired: yes'; then
-  exit 0
+info=$(timeout 5s bluetoothctl info "$addr" 2>/dev/null || true)
+if [[ $info != *"Paired: yes"* ]]; then
+  exit 1
 fi
-exit 1
+
+# Audio devices need the classic BR/EDR bond for A2DP. A dual-mode speaker that
+# is advertising only its BLE side pairs over LE, which produces a bond with no
+# Audio Sink profile and therefore no sound. Flag it so the panel can explain
+# what happened instead of reporting a plain failure.
+if [[ $info == *"Icon: audio"* || $info == *"Class: 0x002c"* ]] && [[ $info != *"Audio Sink"* ]]; then
+  echo "paired over BLE only; no A2DP profile" >&2
+  exit 4
+fi
+
+exit 0

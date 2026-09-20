@@ -654,7 +654,9 @@ Panel {
         root.pairTargetAddress = ""
         root.pairDialogMessage = ""
       } else {
-        root.pairDialogMessage = "Pairing failed — check the PIN and try again."
+        root.pairDialogMessage = exitCode === 4
+          ? "Paired over BLE only — no audio profile. Reset the speaker to clear its pairings, then pair again."
+          : "Pairing failed — check the PIN and try again."
       }
     }
   }

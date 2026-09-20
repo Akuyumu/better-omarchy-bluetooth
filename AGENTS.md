@@ -75,14 +75,24 @@ omarchy-shell better-omarchy-bluetooth close
 ## Environment / test device
 
 - Omarchy 4.0.4, Quickshell 0.3.1, bluez 5.87, PipeWire/WirePlumber.
-- Test device: **Divoom Ditoo Pro**, address `B1:21:81:A7:B8:EA`.
-  Same MAC advertises two personalities: `DitooPro-Light` (BLE, app/screen)
-  and `DitooPro-Audio` (classic BR/EDR, A2DP speaker). Audio needs the classic
-  bond.
-- Divoom quirks seen: stale pairing on the device makes classic pairing fail
-  with `org.bluez.Error.AuthenticationRejected` (and a corrupt bond gives
-  `br-connection-key-missing`). Fix is clearing the device's pairing
-  (device reset) + phone Bluetooth off; it then pairs via Just Works.
+- Test device: **Divoom Ditoo Pro**. Address changed after a factory reset:
+  `B1:21:81:A7:B8:EA` → `B1:21:81:41:0E:09`. **A Divoom reset can randomize the
+  address**, so always re-discover rather than reusing an old MAC.
+  The device advertises two personalities under the same MAC: `DitooPro-Light`
+  (BLE, app/screen) and `DitooPro-Audio` (classic BR/EDR, A2DP speaker). Audio
+  needs the classic bond.
+- Divoom quirks seen:
+  - A stale pairing on the device makes classic pairing fail with
+    `org.bluez.Error.AuthenticationRejected` (a corrupt bond gives
+    `br-connection-key-missing`). Fix: clear the device's pairing (reset) and
+    keep phone Bluetooth off. It then pairs classic via **Just Works** — no PIN.
+  - The device only advertises its classic `Audio` side in a fresh/reset state;
+    once it has an LE bond it can go `Light`-only. If the panel pairs it while
+    it advertises only LE, BlueZ pairs the **BLE** side, which has no A2DP and
+    produces no sound. The helper detects this and exits **4** so the panel can
+    tell the user to reset the speaker.
+  - After pairing classic, `bluetoothctl pair` picks the classic bearer because
+    the device advertises `Audio Sink`; no special bearer forcing is needed.
 
 ## Current state / TODO
 
